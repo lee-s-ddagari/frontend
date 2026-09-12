@@ -1,0 +1,152 @@
+import type { ForecastPoint, WeatherData } from '../types';
+
+export type MockScenarioKey = 'rainy' | 'winter' | 'mild';
+
+export interface MockLocation {
+  label: string;
+  nx: number;
+  ny: number;
+  scenario: MockScenarioKey;
+}
+
+export const MOCK_LOCATIONS: readonly MockLocation[] = [
+  {
+    label: '서울 마포구 서교동',
+    nx: 59,
+    ny: 127,
+    scenario: 'rainy',
+  },
+  {
+    label: '서울 관악구 신림동',
+    nx: 59,
+    ny: 125,
+    scenario: 'winter',
+  },
+  {
+    label: '서울 성북구 안암동',
+    nx: 60,
+    ny: 128,
+    scenario: 'mild',
+  },
+];
+
+interface ScenarioDefinition {
+  location: MockLocation;
+  start: { year: number; month: number; day: number; hour: number };
+  tempBase: number;
+  tempAmplitude: number;
+  humidityBase: number;
+  humidityAmplitude: number;
+  humidityPhase: 1 | -1;
+  precipitation: (hourIndex: number) => ForecastPoint['precipitationType'];
+}
+
+const FIXED_NOISE = [
+  0.12, -0.35, 0.21, -0.08, 0.43, -0.24, 0.06, 0.31,
+  -0.41, 0.18, -0.03, 0.37, -0.16, 0.27, -0.29, 0.09,
+  0.48, -0.12, 0.24, -0.33, 0.04, 0.39, -0.19, 0.14,
+] as const;
+
+const TWO_PI = Math.PI * 2;
+
+function roundToOne(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+function formatLocalTime(
+  start: ScenarioDefinition['start'],
+  hourIndex: number,
+): string {
+  const date = new Date(
+    Date.UTC(start.year, start.month - 1, start.day, start.hour + hourIndex),
+  );
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const hour = String(date.getUTCHours()).padStart(2, '0');
+
+  return `${year}-${month}-${day}T${hour}:00:00+09:00`;
+}
+
+function generateHourly(definition: ScenarioDefinition): ForecastPoint[] {
+  return Array.from({ length: 72 }, (_, hourIndex) => {
+    const hourOfDay = (definition.start.hour + hourIndex) % 24;
+    const daytimeWave = Math.sin(
+      (TWO_PI * (hourOfDay - 9)) / 24,
+    );
+    const noise = FIXED_NOISE[hourIndex % FIXED_NOISE.length];
+
+    return {
+      time: formatLocalTime(definition.start, hourIndex),
+      tempC: roundToOne(
+        definition.tempBase +
+          definition.tempAmplitude * daytimeWave +
+          noise * 0.4,
+      ),
+      humidity: roundToOne(
+        definition.humidityBase +
+          definition.humidityPhase *
+            definition.humidityAmplitude *
+            daytimeWave +
+          noise,
+      ),
+      precipitationType: definition.precipitation(hourIndex),
+    };
+  });
+}
+
+function createWeatherData(definition: ScenarioDefinition): WeatherData {
+  const hourly = generateHourly(definition);
+  const current = hourly[0];
+
+  return {
+    location: {
+      label: definition.location.label,
+      nx: definition.location.nx,
+      ny: definition.location.ny,
+    },
+    observedAt: current.time,
+    current: { ...current },
+    hourly,
+  };
+}
+
+const definitions: Record<MockScenarioKey, ScenarioDefinition> = {
+  rainy: {
+    location: MOCK_LOCATIONS[0],
+    start: { year: 2026, month: 7, day: 15, hour: 0 },
+    tempBase: 27.5,
+    tempAmplitude: 1.25,
+    humidityBase: 90,
+    humidityAmplitude: 4.2,
+    humidityPhase: 1,
+    precipitation: (hourIndex) =>
+      hourIndex % 12 >= 8 ? 4 : 1,
+  },
+  winter: {
+    location: MOCK_LOCATIONS[1],
+    start: { year: 2026, month: 1, day: 15, hour: 0 },
+    tempBase: -3,
+    tempAmplitude: 4.7,
+    humidityBase: 50,
+    humidityAmplitude: 9.5,
+    humidityPhase: -1,
+    precipitation: () => 0,
+  },
+  mild: {
+    location: MOCK_LOCATIONS[2],
+    start: { year: 2026, month: 4, day: 15, hour: 0 },
+    tempBase: 18,
+    tempAmplitude: 2.7,
+    humidityBase: 47.5,
+    humidityAmplitude: 6.5,
+    humidityPhase: -1,
+    precipitation: () => 0,
+  },
+};
+
+export const mockScenarios: Record<MockScenarioKey, WeatherData> = {
+  rainy: createWeatherData(definitions.rainy),
+  winter: createWeatherData(definitions.winter),
+  mild: createWeatherData(definitions.mild),
+};
