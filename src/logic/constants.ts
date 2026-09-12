@@ -27,6 +27,9 @@ export const K_MIN = 0.15;
 export const K_MAX = 0.75;
 
 /** 생활 수분 발생량 g/m³ */
-export const MOISTURE_BASE = 2.0;
-export const MOISTURE_DRYING = 3.0;
-export const MOISTURE_OCCUPANT = 1.0;
+export const MOISTURE_BASE = 4.0;
+export const MOISTURE_DRYING = 4.0;
+export const MOISTURE_OCCUPANT = 1.5;
+
+/** 지중온도 ℃ */
+export const GROUND_TEMP = 16;

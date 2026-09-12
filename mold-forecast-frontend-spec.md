@@ -186,9 +186,12 @@ export const K_MIN = 0.15;
 export const K_MAX = 0.75;
 
 /** 생활 수분 발생량 g/m³ */
-export const MOISTURE_BASE = 2.0;
-export const MOISTURE_DRYING = 3.0;
-export const MOISTURE_OCCUPANT = 1.0;
+export const MOISTURE_BASE = 4.0;
+export const MOISTURE_DRYING = 4.0;
+export const MOISTURE_OCCUPANT = 1.5;
+
+/** 지중온도 ℃ */
+export const GROUND_TEMP = 16;
 ```
 
 ### 6.2 습공기 계산 (`psychrometrics.ts`)
@@ -236,9 +239,15 @@ indoorHumidity = relativeHumidityFrom(ahIndoor, indoorTempC)
 
 **2단계 — 벽면 온도**
 
+반지하는 벽이 땅에 닿아 지중온도에 가까워진다.
+
 ```
 k = clamp(K_BASE + K_FLOOR[floor] + K_FACING[facing] + K_WINDOW[window], K_MIN, K_MAX)
 wallTempC = indoorTempC - k * (indoorTempC - outdoor.tempC)
+
+if (floor === 'basement') {
+  wallTempC = Math.min(wallTempC, GROUND_TEMP + 2)
+}
 ```
 
 **3단계 — 위험도 점수**
@@ -246,7 +255,7 @@ wallTempC = indoorTempC - k * (indoorTempC - outdoor.tempC)
 ```
 dewPointC = dewPoint(indoorTempC, indoorHumidity)
 marginC   = wallTempC - dewPointC        // 음수면 결로 발생
-score     = clamp(round(100 - (marginC + 2) * 20), 0, 100)
+score     = clamp(round(100 - (marginC + 2) * 12.5), 0, 100)
 ```
 
 등급 경계:

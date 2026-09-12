@@ -6,6 +6,7 @@ import type {
   VentilationVerdict,
 } from '../types';
 import {
+  GROUND_TEMP,
   K_BASE,
   K_FACING,
   K_FLOOR,
@@ -84,12 +85,21 @@ export function calculateRisk(
     K_MIN,
     K_MAX,
   );
-  const wallTempC =
+  let wallTempC =
     indoorTempC -
     heatLossCoefficient * (indoorTempC - outdoor.tempC);
+
+  if (profile.floor === 'basement') {
+    wallTempC = Math.min(wallTempC, GROUND_TEMP + 2);
+  }
+
   const dewPointC = dewPoint(indoorTempC, indoorHumidity);
   const marginC = wallTempC - dewPointC;
-  const score = clamp(Math.round(100 - (marginC + 2) * 20), 0, 100);
+  const score = clamp(
+    Math.round(100 - (marginC + 2) * 12.5),
+    0,
+    100,
+  );
 
   return {
     time: outdoor.time,
