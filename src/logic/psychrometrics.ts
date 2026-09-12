@@ -1,5 +1,4 @@
-const MAGNUS_A = 17.62;
-const MAGNUS_B = 243.12;
+import { MAGNUS_A, MAGNUS_B } from './constants';
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(Math.max(value, min), max);
