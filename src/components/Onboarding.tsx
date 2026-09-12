@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import {
   MOCK_LOCATIONS,
-  type MockScenarioKey,
+  type MockLocationId,
 } from '../data/mockScenarios';
 import type {
   Facing,
@@ -45,9 +45,9 @@ const WINDOW_OPTIONS: readonly Option<WindowType>[] = [
   { value: 'unknown', label: '모르겠음' },
 ];
 
-const ADDRESS_OPTIONS: readonly Option<MockScenarioKey>[] =
+const ADDRESS_OPTIONS: readonly Option<MockLocationId>[] =
   MOCK_LOCATIONS.map((location) => ({
-    value: location.scenario,
+    value: location.id,
     label: location.label.split(' ').pop() ?? location.label,
   }));
 
@@ -102,7 +102,7 @@ interface OnboardingProps {
 }
 
 export default function Onboarding({ onComplete }: OnboardingProps) {
-  const [address, setAddress] = useState<MockScenarioKey | null>(null);
+  const [address, setAddress] = useState<MockLocationId | null>(null);
   const [floor, setFloor] = useState<FloorType | null>(null);
   const [facing, setFacing] = useState<Facing | null>(null);
   const [windowType, setWindowType] = useState<WindowType | null>(null);
@@ -113,7 +113,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     event.preventDefault();
 
     const location = MOCK_LOCATIONS.find(
-      (candidate) => candidate.scenario === address,
+      (candidate) => candidate.id === address,
     );
     if (!complete || !location || !floor || !facing || !windowType) {
       return;

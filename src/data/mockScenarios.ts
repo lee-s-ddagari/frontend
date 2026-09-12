@@ -1,37 +1,37 @@
 import type { ForecastPoint, WeatherData } from '../types';
 
 export type MockScenarioKey = 'rainy' | 'winter' | 'mild';
+export type MockLocationId = 'seogyo' | 'sillim' | 'anam';
 
 export interface MockLocation {
+  id: MockLocationId;
   label: string;
   nx: number;
   ny: number;
-  scenario: MockScenarioKey;
 }
 
 export const MOCK_LOCATIONS: readonly MockLocation[] = [
   {
+    id: 'seogyo',
     label: '서울 마포구 서교동',
     nx: 59,
     ny: 127,
-    scenario: 'rainy',
   },
   {
+    id: 'sillim',
     label: '서울 관악구 신림동',
     nx: 59,
     ny: 125,
-    scenario: 'winter',
   },
   {
+    id: 'anam',
     label: '서울 성북구 안암동',
     nx: 60,
     ny: 128,
-    scenario: 'mild',
   },
 ];
 
 interface ScenarioDefinition {
-  location: MockLocation;
   start: { year: number; month: number; day: number; hour: number };
   tempBase: number;
   tempAmplitude: number;
@@ -109,16 +109,15 @@ function generateHourly(definition: ScenarioDefinition): ForecastPoint[] {
   });
 }
 
-function createWeatherData(definition: ScenarioDefinition): WeatherData {
+export type MockScenarioData = Omit<WeatherData, 'location'>;
+
+function createScenarioData(
+  definition: ScenarioDefinition,
+): MockScenarioData {
   const hourly = generateHourly(definition);
   const current = hourly[0];
 
   return {
-    location: {
-      label: definition.location.label,
-      nx: definition.location.nx,
-      ny: definition.location.ny,
-    },
     observedAt: current.time,
     current: { ...current },
     hourly,
@@ -127,7 +126,6 @@ function createWeatherData(definition: ScenarioDefinition): WeatherData {
 
 const definitions: Record<MockScenarioKey, ScenarioDefinition> = {
   rainy: {
-    location: MOCK_LOCATIONS[0],
     start: { year: 2026, month: 7, day: 15, hour: 0 },
     tempBase: 28.5,
     tempAmplitude: 2.5,
@@ -140,7 +138,6 @@ const definitions: Record<MockScenarioKey, ScenarioDefinition> = {
       hourIndex % 12 >= 8 ? 4 : 1,
   },
   winter: {
-    location: MOCK_LOCATIONS[1],
     start: { year: 2026, month: 1, day: 15, hour: 0 },
     tempBase: -3,
     tempAmplitude: 4.7,
@@ -152,7 +149,6 @@ const definitions: Record<MockScenarioKey, ScenarioDefinition> = {
     precipitation: () => 0,
   },
   mild: {
-    location: MOCK_LOCATIONS[2],
     start: { year: 2026, month: 4, day: 15, hour: 0 },
     tempBase: 18,
     tempAmplitude: 2.7,
@@ -165,8 +161,8 @@ const definitions: Record<MockScenarioKey, ScenarioDefinition> = {
   },
 };
 
-export const mockScenarios: Record<MockScenarioKey, WeatherData> = {
-  rainy: createWeatherData(definitions.rainy),
-  winter: createWeatherData(definitions.winter),
-  mild: createWeatherData(definitions.mild),
+export const mockScenarios: Record<MockScenarioKey, MockScenarioData> = {
+  rainy: createScenarioData(definitions.rainy),
+  winter: createScenarioData(definitions.winter),
+  mild: createScenarioData(definitions.mild),
 };

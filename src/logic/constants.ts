@@ -39,3 +39,7 @@ export const AH_WINDOW_HOURS = 6;
 
 /** 눅눅함 기준 절대습도 g/m³ */
 export const AH_DAMP_THRESHOLD = 17;
+
+/** 환기 추천 시간 범위. 시작 시각은 포함하고 종료 시각은 제외한다. */
+export const VENT_HOUR_START = 6;
+export const VENT_HOUR_END = 22;
