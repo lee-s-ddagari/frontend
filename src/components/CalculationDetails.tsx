@@ -20,7 +20,7 @@ export default function CalculationDetails({
 
   return (
     <details className="border-t border-ink/20 text-ink">
-      <summary className="cursor-pointer py-6 text-lg font-semibold focus-visible:outline-none">
+      <summary className="cursor-pointer py-6 text-lg font-semibold">
         계산 근거
       </summary>
       <div className="pb-8">
