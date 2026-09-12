@@ -12,6 +12,8 @@ export interface ForecastPoint {
 
 export interface WeatherData {
   location: { label: string; nx: number; ny: number };
+  /** 데이터 출처. API 실패 시 fallback으로 표시한다. */
+  source?: 'api' | 'fallback' | 'demo';
   /** 관측 기준 시각 */
   observedAt: string;
   current: ForecastPoint;

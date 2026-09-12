@@ -41,7 +41,7 @@ function App() {
 
     let cancelled = false;
     const requestedScenario = demoEnabled
-      ? demoScenario ?? undefined
+      ? demoScenario ?? 'rainy'
       : undefined;
 
     setWeather({ status: 'loading' });
@@ -146,6 +146,15 @@ function App() {
             </span>
           </button>
         </header>
+
+        {activeWeather?.source === 'fallback' && (
+          <p
+            className="border-b border-ink/20 py-2 text-xs text-ink-muted"
+            role="status"
+          >
+            예시 데이터로 표시 중
+          </p>
+        )}
 
         {!activeWeather && weatherIsLoading && (
           <section className="border-b border-ink/20 py-16" role="status">

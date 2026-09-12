@@ -17,6 +17,7 @@ interface WeatherVariant {
 }
 
 const NO_OFFSETS: WeatherOffsets = { tempC: 0, humidity: 0 };
+const API_TIMEOUT_MS = 3000;
 
 function roundToOne(value: number): number {
   return Math.round(value * 10) / 10;
@@ -54,6 +55,7 @@ function createWeatherData(
   weather: MockScenarioData,
   location: WeatherData['location'],
   offsets: WeatherOffsets,
+  source: WeatherData['source'],
 ): WeatherData {
   return {
     location: {
@@ -61,10 +63,104 @@ function createWeatherData(
       nx: location.nx,
       ny: location.ny,
     },
+    source,
     observedAt: weather.observedAt,
     current: applyOffsets(weather.current, offsets),
     hourly: weather.hourly.map((point) => applyOffsets(point, offsets)),
   };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isForecastPoint(value: unknown): value is ForecastPoint {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const precipitation = value.precipitationType;
+  return (
+    typeof value.time === 'string' &&
+    typeof value.tempC === 'number' &&
+    Number.isFinite(value.tempC) &&
+    typeof value.humidity === 'number' &&
+    Number.isFinite(value.humidity) &&
+    typeof precipitation === 'number' &&
+    Number.isInteger(precipitation) &&
+    precipitation >= 0 &&
+    precipitation <= 4
+  );
+}
+
+function isWeatherData(value: unknown): value is WeatherData {
+  return (
+    isRecord(value) &&
+    isRecord(value.location) &&
+    typeof value.location.label === 'string' &&
+    typeof value.location.nx === 'number' &&
+    typeof value.location.ny === 'number' &&
+    typeof value.observedAt === 'string' &&
+    isForecastPoint(value.current) &&
+    Array.isArray(value.hourly) &&
+    value.hourly.length > 0 &&
+    value.hourly.every(isForecastPoint)
+  );
+}
+
+function locationFor(nx: number, ny: number): WeatherData['location'] {
+  const knownLocation = MOCK_LOCATIONS.find(
+    (candidate) => candidate.nx === nx && candidate.ny === ny,
+  );
+
+  return knownLocation
+    ? {
+        label: knownLocation.label,
+        nx: knownLocation.nx,
+        ny: knownLocation.ny,
+      }
+    : { label: `좌표 ${nx}/${ny}`, nx, ny };
+}
+
+async function fetchApiWeather(
+  nx: number,
+  ny: number,
+  location: WeatherData['location'],
+): Promise<WeatherData> {
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(
+    () => controller.abort(),
+    API_TIMEOUT_MS,
+  );
+
+  try {
+    const query = new URLSearchParams({
+      nx: String(nx),
+      ny: String(ny),
+    });
+    const response = await fetch(`/api/weather?${query}`, {
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`날씨 API 응답 오류: ${response.status}`);
+    }
+
+    const data: unknown = await response.json();
+    if (!isWeatherData(data)) {
+      throw new Error('날씨 API 응답 형식이 올바르지 않습니다.');
+    }
+
+    return {
+      ...data,
+      location: { ...location },
+      current: { ...data.current },
+      hourly: data.hourly.map((point) => ({ ...point })),
+      source: 'api',
+    };
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+  }
 }
 
 export async function fetchWeather(
@@ -72,30 +168,27 @@ export async function fetchWeather(
   ny: number,
   scenario?: MockScenarioKey,
 ): Promise<WeatherData> {
-  if (scenario === undefined) {
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, 300);
-    });
+  const location = locationFor(nx, ny);
+
+  if (scenario !== undefined) {
+    return createWeatherData(
+      mockScenarios[scenario],
+      location,
+      NO_OFFSETS,
+      'demo',
+    );
   }
 
-  const knownLocation = MOCK_LOCATIONS.find(
-    (candidate) => candidate.nx === nx && candidate.ny === ny,
-  );
-  const location: WeatherData['location'] = knownLocation
-    ? {
-        label: knownLocation.label,
-        nx: knownLocation.nx,
-        ny: knownLocation.ny,
-      }
-    : { label: `좌표 ${nx}/${ny}`, nx, ny };
-  const variant =
-    scenario === undefined
-      ? defaultVariant(nx, ny)
-      : { scenario, offsets: NO_OFFSETS };
+  try {
+    return await fetchApiWeather(nx, ny, location);
+  } catch {
+    const variant = defaultVariant(nx, ny);
 
-  return createWeatherData(
-    mockScenarios[variant.scenario],
-    location,
-    variant.offsets,
-  );
+    return createWeatherData(
+      mockScenarios[variant.scenario],
+      location,
+      variant.offsets,
+      'fallback',
+    );
+  }
 }
