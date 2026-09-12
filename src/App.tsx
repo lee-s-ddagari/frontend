@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Onboarding from './components/Onboarding';
 import RiskGauge from './components/RiskGauge';
+import RiskTimeline from './components/RiskTimeline';
 import VentilationCard from './components/VentilationCard';
 import { fetchWeather } from './data/weatherSource';
 import { calculateRiskSeries } from './logic/risk';
@@ -92,6 +93,7 @@ function App() {
               outdoor={weather.data.current}
               result={currentRisk}
             />
+            <RiskTimeline results={riskSeries} />
           </>
         )}
       </div>
