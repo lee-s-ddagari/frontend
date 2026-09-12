@@ -224,19 +224,25 @@ relativeHumidityFrom(absHumidity, tempC): number
 
 **1단계 — 실내 온습도**
 
-`profile.measured`가 있으면 그 값을 그대로 쓰고 2단계로 간다. 없으면 추정한다.
+`profile.measured`가 있으면 그 값을 그대로 쓰고 실내 절대습도를 계산한 뒤 2단계로 간다. 없으면 추정한다.
 겨울에는 난방을 고려해 실내 온도의 하한을 18℃로 두고, 여름에는 실내가 바깥보다 시원하다고 가정하지 않는다.
 추정 실내 상대습도는 계산 안정성을 위해 최대 98%로 제한한다.
 
 ```
-indoorTempC = clamp(outdoor.tempC + 2, 18, 30)
+if (profile.measured) {
+  indoorTempC = profile.measured.tempC
+  indoorHumidity = profile.measured.humidity
+  ahIndoor = absoluteHumidity(indoorTempC, indoorHumidity)
+} else {
+  indoorTempC = clamp(outdoor.tempC + 2, 18, 30)
 
-moistureGain = MOISTURE_BASE
-             + (indoorDrying ? MOISTURE_DRYING : 0)
-             + ((occupants ?? 1) >= 2 ? MOISTURE_OCCUPANT : 0)
+  moistureGain = MOISTURE_BASE
+               + (indoorDrying ? MOISTURE_DRYING : 0)
+               + ((occupants ?? 1) >= 2 ? MOISTURE_OCCUPANT : 0)
 
-ahIndoor = absoluteHumidity(outdoor.tempC, outdoor.humidity) + moistureGain
-indoorHumidity = clamp(relativeHumidityFrom(ahIndoor, indoorTempC), 0, 98)
+  ahIndoor = absoluteHumidity(outdoor.tempC, outdoor.humidity) + moistureGain
+  indoorHumidity = clamp(relativeHumidityFrom(ahIndoor, indoorTempC), 0, 98)
+}
 ```
 
 **2단계 — 벽면 온도**
@@ -271,14 +277,17 @@ score     = clamp(round(100 - (marginC + 2) * 12.5), 0, 100)
 
 **4단계 — 환기 판정**
 
-실외 공기의 이슬점이 벽면 온도보다 높으면, 창을 여는 순간 그 공기가 차가운 벽에 닿아 결로를 만든다.
+실외 공기의 이슬점이 벽면 온도보다 높으면, 창을 여는 순간 그 공기가 차가운 벽에 닿아 결로를 만든다. 결로 기준을 통과하더라도 실외 절대습도가 실내와 비슷하거나 더 높으면 환기가 습기를 줄이지 못하므로 해로운 것으로 판정한다.
 
 ```
-dewOutdoor = dewPoint(outdoor.tempC, outdoor.humidity)
+const dewOutdoor = dewPoint(outdoor.tempC, outdoor.humidity)
+const ahOutdoor  = absoluteHumidity(outdoor.tempC, outdoor.humidity)
+// ahIndoor는 1단계에서 이미 계산된 실내 절대습도
 
-if (dewOutdoor >= wallTempC - 0.5)            → 'harmful'
-else if (dewPointC - dewOutdoor >= 1.0)       → 'recommended'
-else                                           → 'neutral'
+if (dewOutdoor >= wallTempC - 0.5)      → 'harmful'   // 결로 유발
+else if (ahOutdoor >= ahIndoor - 0.5)   → 'harmful'   // 바깥이 더 습함
+else if (dewPointC - dewOutdoor >= 1.0) → 'recommended'
+else                                     → 'neutral'
 ```
 
 강수 중(`precipitationType !== 0`)이면 `recommended`를 `neutral`로 낮춘다.

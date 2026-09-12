@@ -35,12 +35,21 @@ function riskLevelFrom(score: number): RiskLevel {
 
 function ventilationVerdict(
   outdoor: ForecastPoint,
+  indoorAbsoluteHumidity: number,
   indoorDewPointC: number,
   wallTempC: number,
 ): VentilationVerdict {
   const outdoorDewPointC = dewPoint(outdoor.tempC, outdoor.humidity);
+  const outdoorAbsoluteHumidity = absoluteHumidity(
+    outdoor.tempC,
+    outdoor.humidity,
+  );
 
   if (outdoorDewPointC >= wallTempC - 0.5) {
+    return 'harmful';
+  }
+
+  if (outdoorAbsoluteHumidity >= indoorAbsoluteHumidity - 0.5) {
     return 'harmful';
   }
 
@@ -57,10 +66,15 @@ export function calculateRisk(
 ): RiskResult {
   let indoorTempC: number;
   let indoorHumidity: number;
+  let indoorAbsoluteHumidity: number;
 
   if (profile.measured) {
     indoorTempC = profile.measured.tempC;
     indoorHumidity = profile.measured.humidity;
+    indoorAbsoluteHumidity = absoluteHumidity(
+      indoorTempC,
+      indoorHumidity,
+    );
   } else {
     indoorTempC = clamp(outdoor.tempC + 2, 18, 30);
 
@@ -68,7 +82,7 @@ export function calculateRisk(
       MOISTURE_BASE +
       (profile.indoorDrying ? MOISTURE_DRYING : 0) +
       ((profile.occupants ?? 1) >= 2 ? MOISTURE_OCCUPANT : 0);
-    const indoorAbsoluteHumidity =
+    indoorAbsoluteHumidity =
       absoluteHumidity(outdoor.tempC, outdoor.humidity) + moistureGain;
 
     indoorHumidity = clamp(
@@ -111,6 +125,11 @@ export function calculateRisk(
     dewPointC,
     wallTempC,
     marginC,
-    ventilation: ventilationVerdict(outdoor, dewPointC, wallTempC),
+    ventilation: ventilationVerdict(
+      outdoor,
+      indoorAbsoluteHumidity,
+      dewPointC,
+      wallTempC,
+    ),
   };
 }
