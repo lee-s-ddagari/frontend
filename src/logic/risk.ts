@@ -62,7 +62,7 @@ export function calculateRisk(
     indoorTempC = profile.measured.tempC;
     indoorHumidity = profile.measured.humidity;
   } else {
-    indoorTempC = clamp(outdoor.tempC + 4, 20, 26);
+    indoorTempC = clamp(outdoor.tempC + 2, 18, 30);
 
     const moistureGain =
       MOISTURE_BASE +
@@ -71,9 +71,10 @@ export function calculateRisk(
     const indoorAbsoluteHumidity =
       absoluteHumidity(outdoor.tempC, outdoor.humidity) + moistureGain;
 
-    indoorHumidity = relativeHumidityFrom(
-      indoorAbsoluteHumidity,
-      indoorTempC,
+    indoorHumidity = clamp(
+      relativeHumidityFrom(indoorAbsoluteHumidity, indoorTempC),
+      0,
+      98,
     );
   }
 

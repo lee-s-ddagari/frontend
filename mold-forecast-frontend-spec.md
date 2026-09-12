@@ -225,16 +225,18 @@ relativeHumidityFrom(absHumidity, tempC): number
 **1단계 — 실내 온습도**
 
 `profile.measured`가 있으면 그 값을 그대로 쓰고 2단계로 간다. 없으면 추정한다.
+겨울에는 난방을 고려해 실내 온도의 하한을 18℃로 두고, 여름에는 실내가 바깥보다 시원하다고 가정하지 않는다.
+추정 실내 상대습도는 계산 안정성을 위해 최대 98%로 제한한다.
 
 ```
-indoorTempC = clamp(outdoor.tempC + 4, 20, 26)
+indoorTempC = clamp(outdoor.tempC + 2, 18, 30)
 
 moistureGain = MOISTURE_BASE
              + (indoorDrying ? MOISTURE_DRYING : 0)
              + ((occupants ?? 1) >= 2 ? MOISTURE_OCCUPANT : 0)
 
 ahIndoor = absoluteHumidity(outdoor.tempC, outdoor.humidity) + moistureGain
-indoorHumidity = relativeHumidityFrom(ahIndoor, indoorTempC)
+indoorHumidity = clamp(relativeHumidityFrom(ahIndoor, indoorTempC), 0, 98)
 ```
 
 **2단계 — 벽면 온도**
@@ -386,7 +388,7 @@ URL에 `?demo=1`이 있을 때만 화면 우하단에 고정 노출한다. 목 �
 
 | 키 | 상황 | 특징 |
 |---|---|---|
-| `rainy` | 장마철 | 기온 26~29℃, 습도 85~95%, 강수 있음. 환기 `harmful`이 나오는 구간이 있어야 한다 |
+| `rainy` | 장마철 | 기온 26~31℃, 습도 60~92%, 강수 있음. 낮에는 기온이 높고 습도가 낮으며, 새벽에는 기온이 낮고 습도가 높다. 환기 `harmful`이 나오는 구간이 있어야 한다 |
 | `winter` | 한파 | 기온 -8~2℃, 습도 40~60%. 반지하·북향·단창 조합에서 `danger`가 나와야 한다 |
 | `mild` | 맑은 봄날 | 기온 15~21℃, 습도 40~55%. 대부분 `safe`이고 환기 추천 구간이 넉넉해야 한다 |
 

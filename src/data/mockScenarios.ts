@@ -35,9 +35,11 @@ interface ScenarioDefinition {
   start: { year: number; month: number; day: number; hour: number };
   tempBase: number;
   tempAmplitude: number;
+  tempRange: readonly [min: number, max: number];
   humidityBase: number;
   humidityAmplitude: number;
   humidityPhase: 1 | -1;
+  humidityRange: readonly [min: number, max: number];
   precipitation: (hourIndex: number) => ForecastPoint['precipitationType'];
 }
 
@@ -48,6 +50,10 @@ const FIXED_NOISE = [
 ] as const;
 
 const TWO_PI = Math.PI * 2;
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
 
 function roundToOne(value: number): number {
   return Math.round(value * 10) / 10;
@@ -79,16 +85,24 @@ function generateHourly(definition: ScenarioDefinition): ForecastPoint[] {
     return {
       time: formatLocalTime(definition.start, hourIndex),
       tempC: roundToOne(
-        definition.tempBase +
-          definition.tempAmplitude * daytimeWave +
-          noise * 0.4,
+        clamp(
+          definition.tempBase +
+            definition.tempAmplitude * daytimeWave +
+            noise * 0.4,
+          definition.tempRange[0],
+          definition.tempRange[1],
+        ),
       ),
       humidity: roundToOne(
-        definition.humidityBase +
-          definition.humidityPhase *
-            definition.humidityAmplitude *
-            daytimeWave +
-          noise,
+        clamp(
+          definition.humidityBase +
+            definition.humidityPhase *
+              definition.humidityAmplitude *
+              daytimeWave +
+            noise,
+          definition.humidityRange[0],
+          definition.humidityRange[1],
+        ),
       ),
       precipitationType: definition.precipitation(hourIndex),
     };
@@ -115,11 +129,13 @@ const definitions: Record<MockScenarioKey, ScenarioDefinition> = {
   rainy: {
     location: MOCK_LOCATIONS[0],
     start: { year: 2026, month: 7, day: 15, hour: 0 },
-    tempBase: 27.5,
-    tempAmplitude: 1.25,
-    humidityBase: 90,
-    humidityAmplitude: 4.2,
-    humidityPhase: 1,
+    tempBase: 28.5,
+    tempAmplitude: 2.5,
+    tempRange: [26, 31],
+    humidityBase: 76,
+    humidityAmplitude: 16.2,
+    humidityPhase: -1,
+    humidityRange: [60, 92],
     precipitation: (hourIndex) =>
       hourIndex % 12 >= 8 ? 4 : 1,
   },
@@ -128,9 +144,11 @@ const definitions: Record<MockScenarioKey, ScenarioDefinition> = {
     start: { year: 2026, month: 1, day: 15, hour: 0 },
     tempBase: -3,
     tempAmplitude: 4.7,
+    tempRange: [-8, 2],
     humidityBase: 50,
     humidityAmplitude: 9.5,
     humidityPhase: -1,
+    humidityRange: [40, 60],
     precipitation: () => 0,
   },
   mild: {
@@ -138,9 +156,11 @@ const definitions: Record<MockScenarioKey, ScenarioDefinition> = {
     start: { year: 2026, month: 4, day: 15, hour: 0 },
     tempBase: 18,
     tempAmplitude: 2.7,
+    tempRange: [15, 21],
     humidityBase: 47.5,
     humidityAmplitude: 6.5,
     humidityPhase: -1,
+    humidityRange: [40, 55],
     precipitation: () => 0,
   },
 };
