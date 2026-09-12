@@ -1,9 +1,8 @@
 import { useState, type FormEvent } from 'react';
+import AddressSearch from './AddressSearch';
 import BrandLogo from './BrandLogo';
-import {
-  MOCK_LOCATIONS,
-  type MockLocationId,
-} from '../data/mockScenarios';
+import { SEOUL_DONGS, type SeoulDong } from '../data/seoulDongs';
+import { latLonToGrid } from '../logic/grid';
 import type {
   Facing,
   FloorType,
@@ -14,6 +13,7 @@ import type {
 interface Option<T extends string> {
   value: T;
   label: string;
+  description?: string;
 }
 
 interface OptionGroupProps<T extends string> {
@@ -26,10 +26,26 @@ interface OptionGroupProps<T extends string> {
 }
 
 const FLOOR_OPTIONS: readonly Option<FloorType>[] = [
-  { value: 'basement', label: '반지하' },
-  { value: 'first', label: '1층' },
-  { value: 'middle', label: '중간층' },
-  { value: 'top', label: '최상층' },
+  {
+    value: 'basement',
+    label: '반지하',
+    description: '창문이 지면보다 낮아요',
+  },
+  {
+    value: 'first',
+    label: '1층',
+    description: '지면과 같은 높이예요',
+  },
+  {
+    value: 'middle',
+    label: '중간층',
+    description: '위아래 모두 집이에요',
+  },
+  {
+    value: 'top',
+    label: '최상층',
+    description: '바로 위가 옥상이에요',
+  },
 ];
 
 const FACING_OPTIONS: readonly Option<Facing>[] = [
@@ -45,12 +61,6 @@ const WINDOW_OPTIONS: readonly Option<WindowType>[] = [
   { value: 'double', label: '두 겹' },
   { value: 'unknown', label: '모르겠음' },
 ];
-
-const ADDRESS_OPTIONS: readonly Option<MockLocationId>[] =
-  MOCK_LOCATIONS.map((location) => ({
-    value: location.id,
-    label: location.label.split(' ').pop() ?? location.label,
-  }));
 
 function OptionGroup<T extends string>({
   questionNumber,
@@ -82,14 +92,27 @@ function OptionGroup<T extends string>({
               key={option.value}
               type="button"
               aria-pressed={selected}
-              className={`min-h-14 rounded-md border px-3 py-3 text-base font-semibold transition-colors ${
+              className={`flex flex-col items-center justify-center rounded-md border py-3 transition-colors ${
+                option.description ? 'min-h-20 px-1' : 'min-h-14 px-3'
+              } ${
                 selected
                   ? 'border-ink bg-ink text-surface'
                   : 'border-ink/20 bg-surface-alt text-ink hover:border-ink/50'
               }`}
               onClick={() => onChange(option.value)}
             >
-              {option.label}
+              <span className="text-base font-semibold leading-5">
+                {option.label}
+              </span>
+              {option.description && (
+                <span
+                  className={`mt-1 whitespace-nowrap text-xs font-normal leading-4 ${
+                    selected ? 'text-surface/70' : 'text-ink-muted'
+                  }`}
+                >
+                  {option.description}
+                </span>
+              )}
             </button>
           );
         })}
@@ -104,21 +127,30 @@ interface OnboardingProps {
   onCancel?: () => void;
 }
 
+function addressLabel(address: SeoulDong): string {
+  return `서울 ${address.gu} ${address.dong}`;
+}
+
+function initialAddress(profile?: RoomProfile): SeoulDong | null {
+  if (!profile) {
+    return null;
+  }
+
+  return (
+    SEOUL_DONGS.find(
+      (address) => addressLabel(address) === profile.address.label,
+    ) ?? null
+  );
+}
+
 export default function Onboarding({
   initialProfile,
   onComplete,
   onCancel,
 }: OnboardingProps) {
   const editing = initialProfile !== undefined;
-  const initialLocation = initialProfile
-    ? MOCK_LOCATIONS.find(
-        (location) =>
-          location.nx === initialProfile.address.nx &&
-          location.ny === initialProfile.address.ny,
-      )
-    : undefined;
-  const [address, setAddress] = useState<MockLocationId | null>(
-    initialLocation?.id ?? null,
+  const [address, setAddress] = useState<SeoulDong | null>(() =>
+    initialAddress(initialProfile),
   );
   const [floor, setFloor] = useState<FloorType | null>(
     initialProfile?.floor ?? null,
@@ -135,19 +167,18 @@ export default function Onboarding({
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const location = MOCK_LOCATIONS.find(
-      (candidate) => candidate.id === address,
-    );
-    if (!complete || !location || !floor || !facing || !windowType) {
+    if (!complete || !address || !floor || !facing || !windowType) {
       return;
     }
+
+    const grid = latLonToGrid(address.lat, address.lon);
 
     const nextProfile: RoomProfile = {
       ...initialProfile,
       address: {
-        label: location.label,
-        nx: location.nx,
-        ny: location.ny,
+        label: addressLabel(address),
+        nx: grid.nx,
+        ny: grid.ny,
       },
       floor,
       facing,
@@ -173,14 +204,13 @@ export default function Onboarding({
         </header>
 
         <form className="space-y-8" onSubmit={handleSubmit}>
-          <OptionGroup
-            questionNumber={1}
-            legend="어디 사세요?"
-            options={ADDRESS_OPTIONS}
-            value={address}
-            onChange={setAddress}
-            columns="three"
-          />
+          <fieldset className="border-t border-ink/20 pt-6">
+            <legend className="mb-4 flex w-full items-baseline gap-3 text-lg font-semibold">
+              <span className="text-sm font-medium text-ink-muted">1.</span>
+              어디 사세요?
+            </legend>
+            <AddressSearch value={address} onChange={setAddress} />
+          </fieldset>
           <OptionGroup
             questionNumber={2}
             legend="몇 층인가요?"
