@@ -198,7 +198,10 @@ export const MOISTURE_OCCUPANT = 1.5;
 export const GROUND_TEMP = 16;
 
 /** 실내 공기 평활 구간 */
-export const AH_WINDOW_HOURS = 12;
+export const AH_WINDOW_HOURS = 6;
+
+/** 눅눅함 기준 절대습도 g/m³ */
+export const AH_DAMP_THRESHOLD = 17;
 ```
 
 ### 6.2 습공기 계산 (`psychrometrics.ts`)
@@ -287,7 +290,7 @@ score     = clamp(round(100 - (marginC + 2) * 12.5), 0, 100)
 
 **4단계 — 환기 판정**
 
-실외 공기의 이슬점이 벽면 온도보다 높으면, 창을 여는 순간 그 공기가 차가운 벽에 닿아 결로를 만든다. 결로 기준을 통과하더라도 실외 절대습도가 실내와 비슷하거나 더 높으면 환기가 습기를 줄이지 못하므로 해로운 것으로 판정한다.
+실외 공기의 이슬점이 벽면 온도보다 높으면, 창을 여는 순간 그 공기가 차가운 벽에 닿아 결로를 만든다. 결로 기준을 통과하더라도 실외 절대습도가 17g/m³ 이상이면 사람이 눅눅하다고 느끼는 수준이며, 그런 공기를 들이면 실내 습도만 올라가므로 해로운 것으로 판정한다. 실외 절대습도가 실내와 비슷하거나 더 높은 경우에도 환기가 습기를 줄이지 못하므로 해로운 것으로 판정한다.
 
 ```
 const dewOutdoor = dewPoint(outdoor.tempC, outdoor.humidity)
@@ -295,6 +298,7 @@ const ahOutdoor  = absoluteHumidity(outdoor.tempC, outdoor.humidity)
 // ahIndoor는 1단계에서 이미 계산된 실내 절대습도
 
 if (dewOutdoor >= wallTempC - 0.5)      → 'harmful'   // 결로 유발
+else if (ahOutdoor >= AH_DAMP_THRESHOLD) → 'harmful'   // 바깥이 눅눅함
 else if (ahOutdoor >= ahIndoor - 0.5)   → 'harmful'   // 바깥이 더 습함
 else if (dewPointC - dewOutdoor >= 1.0) → 'recommended'
 else                                     → 'neutral'

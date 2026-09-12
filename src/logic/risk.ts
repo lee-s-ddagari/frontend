@@ -6,6 +6,7 @@ import type {
   VentilationVerdict,
 } from '../types';
 import {
+  AH_DAMP_THRESHOLD,
   AH_WINDOW_HOURS,
   GROUND_TEMP,
   K_BASE,
@@ -44,6 +45,10 @@ function ventilationVerdict(
   const outdoorDewPointC = dewPoint(outdoor.tempC, outdoor.humidity);
 
   if (outdoorDewPointC >= wallTempC - 0.5) {
+    return 'harmful';
+  }
+
+  if (outdoorAbsoluteHumidity >= AH_DAMP_THRESHOLD) {
     return 'harmful';
   }
 

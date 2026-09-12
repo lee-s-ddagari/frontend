@@ -35,4 +35,7 @@ export const MOISTURE_OCCUPANT = 1.5;
 export const GROUND_TEMP = 16;
 
 /** 실내 공기 평활 구간 */
-export const AH_WINDOW_HOURS = 12;
+export const AH_WINDOW_HOURS = 6;
+
+/** 눅눅함 기준 절대습도 g/m³ */
+export const AH_DAMP_THRESHOLD = 17;
