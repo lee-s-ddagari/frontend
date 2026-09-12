@@ -98,14 +98,36 @@ function OptionGroup<T extends string>({
 }
 
 interface OnboardingProps {
+  initialProfile?: RoomProfile;
   onComplete: (profile: RoomProfile) => void;
+  onCancel?: () => void;
 }
 
-export default function Onboarding({ onComplete }: OnboardingProps) {
-  const [address, setAddress] = useState<MockLocationId | null>(null);
-  const [floor, setFloor] = useState<FloorType | null>(null);
-  const [facing, setFacing] = useState<Facing | null>(null);
-  const [windowType, setWindowType] = useState<WindowType | null>(null);
+export default function Onboarding({
+  initialProfile,
+  onComplete,
+  onCancel,
+}: OnboardingProps) {
+  const editing = initialProfile !== undefined;
+  const initialLocation = initialProfile
+    ? MOCK_LOCATIONS.find(
+        (location) =>
+          location.nx === initialProfile.address.nx &&
+          location.ny === initialProfile.address.ny,
+      )
+    : undefined;
+  const [address, setAddress] = useState<MockLocationId | null>(
+    initialLocation?.id ?? null,
+  );
+  const [floor, setFloor] = useState<FloorType | null>(
+    initialProfile?.floor ?? null,
+  );
+  const [facing, setFacing] = useState<Facing | null>(
+    initialProfile?.facing ?? null,
+  );
+  const [windowType, setWindowType] = useState<WindowType | null>(
+    initialProfile?.window ?? null,
+  );
 
   const complete = Boolean(address && floor && facing && windowType);
 
@@ -119,7 +141,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       return;
     }
 
-    onComplete({
+    const nextProfile: RoomProfile = {
+      ...initialProfile,
       address: {
         label: location.label,
         nx: location.nx,
@@ -128,7 +151,9 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       floor,
       facing,
       window: windowType,
-    });
+    };
+
+    onComplete(nextProfile);
   }
 
   return (
@@ -137,7 +162,9 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         <header className="mb-10">
           <h1 className="text-3xl font-semibold leading-tight">곰팡이 예보</h1>
           <p className="mt-3 text-base leading-7 text-ink-muted">
-            내 방 조건을 알려주면 결로 위험과 환기할 시간을 계산해요.
+            {editing
+              ? '저장된 지역과 방 조건을 수정해요.'
+              : '내 방 조건을 알려주면 결로 위험과 환기할 시간을 계산해요.'}
           </p>
         </header>
 
@@ -175,13 +202,24 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
             columns="three"
           />
 
-          <button
-            type="submit"
-            disabled={!complete}
-            className="min-h-14 w-full rounded-md bg-ink px-5 py-3 text-base font-semibold text-surface transition-colors hover:bg-ink/90 disabled:cursor-not-allowed disabled:bg-surface-alt disabled:text-ink-muted"
-          >
-            선택 완료
-          </button>
+          <div className={editing ? 'grid grid-cols-2 gap-2' : ''}>
+            {editing && onCancel && (
+              <button
+                type="button"
+                className="min-h-14 rounded-md border border-ink/20 bg-surface-alt px-5 py-3 text-base font-semibold text-ink transition-colors hover:border-ink/50"
+                onClick={onCancel}
+              >
+                취소
+              </button>
+            )}
+            <button
+              type="submit"
+              disabled={!complete}
+              className="min-h-14 w-full rounded-md bg-ink px-5 py-3 text-base font-semibold text-surface transition-colors hover:bg-ink/90 disabled:cursor-not-allowed disabled:bg-surface-alt disabled:text-ink-muted"
+            >
+              {editing ? '저장' : '선택 완료'}
+            </button>
+          </div>
         </form>
       </div>
     </main>

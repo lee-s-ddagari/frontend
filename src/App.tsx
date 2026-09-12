@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import CalculationDetails from './components/CalculationDetails';
 import ComparePanel from './components/ComparePanel';
 import DemoControls from './components/DemoControls';
@@ -23,17 +23,19 @@ type WeatherState =
 
 function App() {
   const [profile, setProfile] = useState<RoomProfile | null>(loadRoomProfile);
+  const [editingProfile, setEditingProfile] = useState(false);
   const [weather, setWeather] = useState<WeatherState>({ status: 'loading' });
-  const [compareOpen, setCompareOpen] = useState(false);
   const [previewProfile, setPreviewProfile] = useState<RoomProfile | null>(null);
   const [demoScenario, setDemoScenario] =
     useState<MockScenarioKey | null>(null);
   const demoEnabled =
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('demo') === '1';
+  const weatherNx = profile?.address.nx;
+  const weatherNy = profile?.address.ny;
 
   useEffect(() => {
-    if (!profile) {
+    if (weatherNx === undefined || weatherNy === undefined) {
       return;
     }
 
@@ -42,15 +44,9 @@ function App() {
       ? demoScenario ?? undefined
       : undefined;
 
-    if (requestedScenario === undefined) {
-      setWeather({ status: 'loading' });
-    }
+    setWeather({ status: 'loading' });
 
-    fetchWeather(
-      profile.address.nx,
-      profile.address.ny,
-      requestedScenario,
-    )
+    fetchWeather(weatherNx, weatherNy, requestedScenario)
       .then((data) => {
         if (!cancelled) {
           setWeather({ status: 'ready', data });
@@ -65,10 +61,18 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [demoEnabled, demoScenario, profile]);
+  }, [demoEnabled, demoScenario, weatherNx, weatherNy]);
 
   const activeProfile = previewProfile ?? profile;
-  const activeWeather = weather.status === 'ready' ? weather.data : null;
+  const weatherMatchesProfile =
+    profile !== null &&
+    weather.status === 'ready' &&
+    weather.data.location.nx === profile.address.nx &&
+    weather.data.location.ny === profile.address.ny;
+  const activeWeather = weatherMatchesProfile ? weather.data : null;
+  const weatherIsLoading =
+    weather.status === 'loading' ||
+    (weather.status === 'ready' && !weatherMatchesProfile);
 
   const riskSeries = useMemo(() => {
     if (!activeProfile || !activeWeather) {
@@ -79,26 +83,40 @@ function App() {
   }, [activeProfile, activeWeather]);
 
   function handleOnboardingComplete(nextProfile: RoomProfile) {
-    saveRoomProfile(nextProfile);
-    setProfile(nextProfile);
-  }
+    const updatedProfile: RoomProfile = {
+      ...nextProfile,
+      address: { ...nextProfile.address },
+      ...(nextProfile.measured
+        ? { measured: { ...nextProfile.measured } }
+        : {}),
+    };
+    const addressChanged =
+      profile !== null &&
+      (profile.address.nx !== updatedProfile.address.nx ||
+        profile.address.ny !== updatedProfile.address.ny);
 
-  function openComparePanel() {
-    if (!profile) {
-      return;
+    if (addressChanged) {
+      setWeather({ status: 'loading' });
     }
 
-    setPreviewProfile(profile);
-    setCompareOpen(true);
-  }
-
-  const closeComparePanel = useCallback(() => {
-    setCompareOpen(false);
+    saveRoomProfile(updatedProfile);
+    setProfile(updatedProfile);
     setPreviewProfile(null);
-  }, []);
+    setEditingProfile(false);
+  }
 
   if (!profile) {
     return <Onboarding onComplete={handleOnboardingComplete} />;
+  }
+
+  if (editingProfile) {
+    return (
+      <Onboarding
+        initialProfile={profile}
+        onComplete={handleOnboardingComplete}
+        onCancel={() => setEditingProfile(false)}
+      />
+    );
   }
 
   const currentRisk = riskSeries[0];
@@ -113,19 +131,23 @@ function App() {
       >
         <header className="flex flex-col gap-1 border-b border-ink/20 pb-5 sm:flex-row sm:items-end sm:justify-between">
           <h1 className="text-2xl font-semibold">곰팡이 예보</h1>
-          <p className="text-sm text-ink-muted">{profile.address.label}</p>
+          <button
+            type="button"
+            className="group inline-flex cursor-pointer items-center gap-1 self-start text-sm text-ink-muted sm:self-auto"
+            aria-label={`${profile.address.label}, 방 정보 설정`}
+            title="방 정보 설정"
+            onClick={() => setEditingProfile(true)}
+          >
+            <span className="underline decoration-ink/30 underline-offset-4 group-hover:decoration-ink">
+              {profile.address.label}
+            </span>
+            <span aria-hidden="true" className="text-base leading-none">
+              ›
+            </span>
+          </button>
         </header>
 
-        {compareOpen && (
-          <p
-            className="border-b border-ink/20 bg-surface-alt px-4 py-3 text-sm font-semibold text-ink-muted"
-            role="status"
-          >
-            방 조건 미리보기 중 · 저장되지 않습니다
-          </p>
-        )}
-
-        {!activeWeather && weather.status === 'loading' && (
+        {!activeWeather && weatherIsLoading && (
           <section className="border-b border-ink/20 py-16" role="status">
             <p className="text-base text-ink-muted">날씨를 확인하고 있어요.</p>
           </section>
@@ -147,32 +169,21 @@ function App() {
               result={currentRisk}
             />
             <RiskTimeline results={riskSeries} />
+            <ComparePanel
+              profile={previewProfile ?? profile}
+              isPreviewing={previewProfile !== null}
+              onChange={setPreviewProfile}
+              onReset={() => setPreviewProfile(null)}
+            />
             <VentilationSlots
               hourly={activeWeather.hourly}
               results={riskSeries}
             />
             <CalculationDetails result={currentRisk} />
-            <section className="border-t border-ink/20 py-8">
-              <button
-                type="button"
-                className="min-h-12 w-full rounded-md border border-ink/20 bg-surface-alt px-5 py-3 text-base font-semibold text-ink hover:border-ink/50"
-                aria-expanded={compareOpen}
-                aria-controls="compare-panel"
-                onClick={openComparePanel}
-              >
-                내 방 조건 바꿔보기
-              </button>
-            </section>
           </>
         )}
       </div>
 
-      <ComparePanel
-        open={compareOpen}
-        profile={previewProfile ?? profile}
-        onChange={setPreviewProfile}
-        onClose={closeComparePanel}
-      />
       {demoEnabled && (
         <DemoControls
           activeScenario={activeScenario}
