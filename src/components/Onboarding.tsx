@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import BrandLogo from './BrandLogo';
 import {
   MOCK_LOCATIONS,
   type MockLocationId,
@@ -159,13 +160,16 @@ export default function Onboarding({
   return (
     <main className="min-h-screen bg-surface text-ink">
       <div className="mx-auto w-full max-w-2xl px-5 py-10 sm:px-8 sm:py-14">
-        <header className="mb-10">
-          <h1 className="text-3xl font-semibold leading-tight">곰팡이 예보</h1>
-          <p className="mt-3 text-base leading-7 text-ink-muted">
-            {editing
-              ? '저장된 지역과 방 조건을 수정해요.'
-              : '내 방 조건을 알려주면 결로 위험과 환기할 시간을 계산해요.'}
-          </p>
+        <header className="mb-10 flex items-center gap-4">
+          <BrandLogo size="large" className="-ml-3" />
+          <div className="min-w-0">
+            <h1 className="text-3xl font-semibold leading-tight">곰팡이 예보</h1>
+            <p className="mt-2 text-base leading-7 text-ink-muted">
+              {editing
+                ? '저장된 지역과 방 조건을 수정해요.'
+                : '내 방 조건을 알려주면 결로 위험과 환기할 시간을 계산해요.'}
+            </p>
+          </div>
         </header>
 
         <form className="space-y-8" onSubmit={handleSubmit}>

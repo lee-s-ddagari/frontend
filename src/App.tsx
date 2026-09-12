@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import BrandLogo from './components/BrandLogo';
 import CalculationDetails from './components/CalculationDetails';
 import ComparePanel from './components/ComparePanel';
 import DemoControls from './components/DemoControls';
@@ -129,8 +130,11 @@ function App() {
           demoEnabled ? 'pb-36 sm:pb-36' : ''
         }`}
       >
-        <header className="flex flex-col gap-1 border-b border-ink/20 pb-5 sm:flex-row sm:items-end sm:justify-between">
-          <h1 className="text-2xl font-semibold">곰팡이 예보</h1>
+        <header className="flex flex-col gap-2 border-b border-ink/20 pb-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <BrandLogo className="-ml-2" />
+            <h1 className="text-2xl font-semibold">곰팡이 예보</h1>
+          </div>
           <button
             type="button"
             className="group inline-flex cursor-pointer items-center gap-1 self-start text-sm text-ink-muted sm:self-auto"
