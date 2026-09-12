@@ -6,6 +6,7 @@ import type {
   VentilationVerdict,
 } from '../types';
 import {
+  AH_WINDOW_HOURS,
   GROUND_TEMP,
   K_BASE,
   K_FACING,
@@ -36,14 +37,11 @@ function riskLevelFrom(score: number): RiskLevel {
 function ventilationVerdict(
   outdoor: ForecastPoint,
   indoorAbsoluteHumidity: number,
+  outdoorAbsoluteHumidity: number,
   indoorDewPointC: number,
   wallTempC: number,
 ): VentilationVerdict {
   const outdoorDewPointC = dewPoint(outdoor.tempC, outdoor.humidity);
-  const outdoorAbsoluteHumidity = absoluteHumidity(
-    outdoor.tempC,
-    outdoor.humidity,
-  );
 
   if (outdoorDewPointC >= wallTempC - 0.5) {
     return 'harmful';
@@ -63,6 +61,7 @@ function ventilationVerdict(
 export function calculateRisk(
   outdoor: ForecastPoint,
   profile: RoomProfile,
+  ahBaseline: number,
 ): RiskResult {
   let indoorTempC: number;
   let indoorHumidity: number;
@@ -82,8 +81,7 @@ export function calculateRisk(
       MOISTURE_BASE +
       (profile.indoorDrying ? MOISTURE_DRYING : 0) +
       ((profile.occupants ?? 1) >= 2 ? MOISTURE_OCCUPANT : 0);
-    indoorAbsoluteHumidity =
-      absoluteHumidity(outdoor.tempC, outdoor.humidity) + moistureGain;
+    indoorAbsoluteHumidity = ahBaseline + moistureGain;
 
     indoorHumidity = clamp(
       relativeHumidityFrom(indoorAbsoluteHumidity, indoorTempC),
@@ -109,6 +107,10 @@ export function calculateRisk(
   }
 
   const dewPointC = dewPoint(indoorTempC, indoorHumidity);
+  const outdoorAbsoluteHumidity = absoluteHumidity(
+    outdoor.tempC,
+    outdoor.humidity,
+  );
   const marginC = wallTempC - dewPointC;
   const score = clamp(
     Math.round(100 - (marginC + 2) * 12.5),
@@ -125,11 +127,45 @@ export function calculateRisk(
     dewPointC,
     wallTempC,
     marginC,
+    ahIndoor: indoorAbsoluteHumidity,
+    ahOutdoor: outdoorAbsoluteHumidity,
     ventilation: ventilationVerdict(
       outdoor,
       indoorAbsoluteHumidity,
+      outdoorAbsoluteHumidity,
       dewPointC,
       wallTempC,
     ),
   };
+}
+
+function calculateAhBaselines(hourly: ForecastPoint[]): number[] {
+  const outdoorValues = hourly.map((point) =>
+    absoluteHumidity(point.tempC, point.humidity),
+  );
+  let windowSum = 0;
+
+  return outdoorValues.map((currentValue, index) => {
+    const availableHours = Math.min(index, AH_WINDOW_HOURS);
+    const baseline =
+      availableHours === 0 ? currentValue : windowSum / availableHours;
+
+    windowSum += currentValue;
+    if (index >= AH_WINDOW_HOURS) {
+      windowSum -= outdoorValues[index - AH_WINDOW_HOURS];
+    }
+
+    return baseline;
+  });
+}
+
+export function calculateRiskSeries(
+  hourly: ForecastPoint[],
+  profile: RoomProfile,
+): RiskResult[] {
+  const ahBaselines = calculateAhBaselines(hourly);
+
+  return hourly.map((point, index) =>
+    calculateRisk(point, profile, ahBaselines[index]),
+  );
 }

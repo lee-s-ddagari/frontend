@@ -144,6 +144,10 @@ export interface RiskResult {
   wallTempC: number;
   /** wallTempC - dewPointC. 음수면 결로 발생 */
   marginC: number;
+  /** 추정 또는 실측 실내 절대습도 g/m³ */
+  ahIndoor: number;
+  /** 실외 절대습도 g/m³ */
+  ahOutdoor: number;
   ventilation: VentilationVerdict;
 }
 ```
@@ -192,6 +196,9 @@ export const MOISTURE_OCCUPANT = 1.5;
 
 /** 지중온도 ℃ */
 export const GROUND_TEMP = 16;
+
+/** 실내 공기 평활 구간 */
+export const AH_WINDOW_HOURS = 12;
 ```
 
 ### 6.2 습공기 계산 (`psychrometrics.ts`)
@@ -240,10 +247,13 @@ if (profile.measured) {
                + (indoorDrying ? MOISTURE_DRYING : 0)
                + ((occupants ?? 1) >= 2 ? MOISTURE_OCCUPANT : 0)
 
-  ahIndoor = absoluteHumidity(outdoor.tempC, outdoor.humidity) + moistureGain
+  ahBaseline = 해당 시각 직전 AH_WINDOW_HOURS 시간의 외기 절대습도 단순 이동평균
+  ahIndoor = ahBaseline + moistureGain
   indoorHumidity = clamp(relativeHumidityFrom(ahIndoor, indoorTempC), 0, 98)
 }
 ```
+
+`ahBaseline`은 현재 시각을 제외한 직전 최대 `AH_WINDOW_HOURS` 시간의 외기 절대습도를 평균해 구한다. 앞쪽 데이터가 부족하면 사용 가능한 구간만 평균하고, 첫 시점처럼 직전 데이터가 없으면 현재 외기 절대습도를 사용한다.
 
 **2단계 — 벽면 온도**
 
@@ -291,6 +301,8 @@ else                                     → 'neutral'
 ```
 
 강수 중(`precipitationType !== 0`)이면 `recommended`를 `neutral`로 낮춘다.
+
+단일 시점 계산 함수는 `calculateRisk(point, profile, ahBaseline)` 시그니처를 사용한다. 화면에서는 `hourly` 전체의 이동평균을 먼저 계산하는 `calculateRiskSeries(hourly, profile): RiskResult[]`만 사용한다.
 
 **5단계 — 환기 추천 시간대**
 
@@ -397,7 +409,7 @@ URL에 `?demo=1`이 있을 때만 화면 우하단에 고정 노출한다. 목 �
 
 | 키 | 상황 | 특징 |
 |---|---|---|
-| `rainy` | 장마철 | 기온 26~31℃, 습도 60~92%, 강수 있음. 낮에는 기온이 높고 습도가 낮으며, 새벽에는 기온이 낮고 습도가 높다. 환기 `harmful`이 나오는 구간이 있어야 한다 |
+| `rainy` | 장마철 | 기온 26~31℃, 습도 60~95%, 강수 있음. 낮에는 기온이 높고 습도가 낮으며, 새벽 0~6시에는 습도가 최대 95%까지 높아진다. 환기 `harmful`이 나오는 구간이 있어야 한다 |
 | `winter` | 한파 | 기온 -8~2℃, 습도 40~60%. 반지하·북향·단창 조합에서 `danger`가 나와야 한다 |
 | `mild` | 맑은 봄날 | 기온 15~21℃, 습도 40~55%. 대부분 `safe`이고 환기 추천 구간이 넉넉해야 한다 |
 

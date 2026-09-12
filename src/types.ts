@@ -51,5 +51,9 @@ export interface RiskResult {
   wallTempC: number;
   /** wallTempC - dewPointC. 음수면 결로 발생 */
   marginC: number;
+  /** 추정 또는 실측 실내 절대습도 g/m³ */
+  ahIndoor: number;
+  /** 실외 절대습도 g/m³ */
+  ahOutdoor: number;
   ventilation: VentilationVerdict;
 }

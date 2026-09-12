@@ -132,10 +132,10 @@ const definitions: Record<MockScenarioKey, ScenarioDefinition> = {
     tempBase: 28.5,
     tempAmplitude: 2.5,
     tempRange: [26, 31],
-    humidityBase: 76,
-    humidityAmplitude: 16.2,
+    humidityBase: 77.5,
+    humidityAmplitude: 22.5,
     humidityPhase: -1,
-    humidityRange: [60, 92],
+    humidityRange: [60, 95],
     precipitation: (hourIndex) =>
       hourIndex % 12 >= 8 ? 4 : 1,
   },

@@ -33,3 +33,6 @@ export const MOISTURE_OCCUPANT = 1.5;
 
 /** 지중온도 ℃ */
 export const GROUND_TEMP = 16;
+
+/** 실내 공기 평활 구간 */
+export const AH_WINDOW_HOURS = 12;
